@@ -1,6 +1,7 @@
 using Consumer.Configuration;
 using Consumer.HostedService;
 using Kafka.Configurations;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +11,12 @@ builder.Services.ConfigureEventHandlerMsgBus();
 builder.Services.AddHostedService<KafkaConsumerService>();
 
 builder.Services.AddControllers();
+
+//Add Serilog
+builder.Host.UseSerilog((hostingContext, loggerConfiguration) =>
+{
+    loggerConfiguration.ReadFrom.Configuration(hostingContext.Configuration);
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -22,6 +29,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+//Serilog log all requests
+app.UseSerilogRequestLogging(options =>
+{
+    options.IncludeQueryInRequestPath = true;
+});
 
 app.UseHttpsRedirection();
 

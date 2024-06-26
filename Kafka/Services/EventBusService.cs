@@ -1,11 +1,14 @@
-﻿using Common.Models;
+﻿using Common.Logger;
+using Common.Models;
 using Confluent.Kafka;
 using Kafka.Interfaces;
 using Kafka.Models;
 using Kafka.Options;
 using Kafka.Utils;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text;
+using System.Text.Json;
 
 namespace Kafka.Services
 {
@@ -13,9 +16,11 @@ namespace Kafka.Services
     {
         private readonly ClientConfig producerConfig;
         private readonly KafkaOptions kafkaOptions;
+        private readonly ILogger<EventBusService> logger;
 
-        public EventBusService(IOptions<KafkaOptions> options) 
+        public EventBusService(IOptions<KafkaOptions> options, ILogger<EventBusService> logger) 
         {
+            this.logger = logger;
             this.kafkaOptions = options.Value;
             this.producerConfig = new ProducerConfig()
             {
@@ -47,7 +52,11 @@ namespace Kafka.Services
             kMessage.Headers = headers;
 
             var ret = await producer.ProduceAsync(kafkaOptions.Topic, kMessage);
+
+            logger.LogInfoKafkaMessageSent(JsonSerializer.Serialize(kMessage));
+
             producer.Flush();
+
             return ret;
         }
 
@@ -70,7 +79,7 @@ namespace Kafka.Services
                     }
                     catch (Exception ex)
                     {
-
+                        logger.LogErrorKafkaMessageSent(ex.Message);
                     }
                 }
             });
@@ -94,7 +103,7 @@ namespace Kafka.Services
                     }
                     catch (Exception ex)
                     {
-                        // Gestione delle eccezioni
+                        logger.LogErrorKafkaMessageSent(ex.Message);
                     }
                 }
             });

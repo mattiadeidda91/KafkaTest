@@ -1,4 +1,5 @@
 ﻿using Common.Interfaces;
+using Common.Logger;
 using Common.Utils;
 using Kafka.Interfaces;
 using System.Text;
@@ -9,10 +10,12 @@ namespace Consumer.HostedService
     public class KafkaConsumerService : BackgroundService
     {
         private readonly IServiceProvider serviceProvider;
+        private readonly ILogger<KafkaConsumerService> logger;
 
-        public KafkaConsumerService(IServiceProvider serviceProvider)
+        public KafkaConsumerService(IServiceProvider serviceProvider, ILogger<KafkaConsumerService> logger)
         {
             this.serviceProvider = serviceProvider;
+            this.logger = logger;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -23,6 +26,8 @@ namespace Consumer.HostedService
 
                 await eventBusService!.Subscribe(async (msg) =>
                 {
+                    logger.LogInfoSubscribeKafkaTopic();
+
                     var headers = msg.Message.Headers;
                     //var message = msg.Message.Value;
                     //var topic = msg.Topic;
@@ -50,12 +55,26 @@ namespace Consumer.HostedService
                                     var handleMethod = handlerType.GetMethod("HandleAsync");
                                     if (handler != null && handleMethod != null)
                                     {
+                                        logger.LogInfoHandlerInvoke(handler.GetType().Name);
+
                                         //Invoke handler
                                         await (Task)handleMethod!.Invoke(handler, new[] { eventInstance });
                                     }
                                 }
                             }
+                            else
+                            {
+                                logger.LogWarningDeserializeKafkaEvent(classType.Name);
+                            }
                         }
+                        else
+                        {
+                            logger.LogWarningEventTypeNotFound(eventTypeString);
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarningHeadersNotFound();
                     }
 
                     await Task.CompletedTask;
