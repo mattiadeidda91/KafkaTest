@@ -2,17 +2,23 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi.Models;
+using System.Reflection;
 
-namespace Common.Extensions
+namespace Common.Configurations.Swagger
 {
     public static class SwaggerBuilderExtension
     {
-        public static IServiceCollection SwaggerBuild(this IServiceCollection services)
+        public static IServiceCollection SwaggerBuild(this IServiceCollection services, List<string> apiVersions)
         {
             services.AddSwaggerGen(options =>
             {
-                //options.SwaggerDoc("v1", new OpenApiInfo { Title = "IdentityAuthentication", Version = "v1" });
+                foreach (var version in apiVersions)
+                {
+                    options.SwaggerDoc(version, new OpenApiInfo { Title = Assembly.GetEntryAssembly()?.GetName().Name + " " + version.ToUpper(), Version = version });
+                }
+                
                 options.EnableAnnotations();
+                options.OperationFilter<OperationFilter>();
                 options.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme
                 {
                     Name = HeaderNames.Authorization,

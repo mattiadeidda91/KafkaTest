@@ -1,63 +1,46 @@
+using Common.Configurations.Swagger;
 using Common.Extensions;
 using Common.Options;
+using Common.Utils;
 using Kafka.Configurations;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc.Authorization;
-using Microsoft.IdentityModel.Tokens;
 using Serilog;
-using System.Text;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-//Options
+//Get Api versions
+var apiVersions = ApiVersionHelper.GetApiVersions(Assembly.GetExecutingAssembly());
+
+//Configure Options
 var jwtOptions = builder.Services.BuildOptions<JwtTokenOptions>(builder.Configuration);
 
 builder.Services.AddEventBusService(builder.Configuration);
 
-//Jwt Auth
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.SaveToken = true;
-    options.RequireHttpsMetadata = builder.Environment.IsProduction();
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidIssuer = jwtOptions?.Issuer,
-        ValidateAudience = true,
-        ValidAudience = jwtOptions?.Audience,
-        ValidateLifetime = true, //Validate token expiration
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions?.Signature!)),
-        RequireExpirationTime = true,
-        ClockSkew = TimeSpan.FromMinutes(5) //The Default is 5 minutes, Token is valid for 5 mins after expiration
-    };
-});
+//Configure Authentication
+builder.Services.AuthenticationBuild(builder.Environment.IsProduction(), jwtOptions);
 
-builder.Services.AddControllers(config =>
-{
-    var policy = new AuthorizationPolicyBuilder()
-                         .RequireAuthenticatedUser()
-                         .Build();
-    config.Filters.Add(new AuthorizeFilter(policy));
-});
+//Configure Authorization
+builder.Services.AuthorizationBuild();
 
-//Add Serilog
+builder.Services.BuildControllerConfigurations();
+
+//Configure Serilog
 builder.Host.UseSerilog((hostingContext, loggerConfiguration) =>
 {
     loggerConfiguration.ReadFrom.Configuration(hostingContext.Configuration);
 });
 
-//Swagger
-builder.Services.SwaggerBuild();
+//Configure Automapper
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+//Configure Swagger
+builder.Services.SwaggerBuild(apiVersions);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+//Configure Api versioning using namespace convention
+builder.Services.UseApiVersioningNamespaceConvention();
 
 var app = builder.Build();
 
@@ -65,7 +48,13 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        foreach (var version in apiVersions)
+        {
+            c.SwaggerEndpoint($"/swagger/{version}/swagger.json", version);
+        }
+    });
 }
 
 //Serilog logs all requests
@@ -75,6 +64,9 @@ app.UseSerilogRequestLogging(options =>
 });
 
 app.UseHttpsRedirection();
+
+//Handle Errors
+app.UseErrorHandlingMiddleware();
 
 app.UseAuthentication();
 app.UseAuthorization();
