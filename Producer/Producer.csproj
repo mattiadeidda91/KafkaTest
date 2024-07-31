@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
@@ -13,11 +13,5 @@
   <ItemGroup>
     <ProjectReference Include="..\Kafka\Kafka.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="Confluent.Kafka">
-      <HintPath>..\..\..\..\..\.nuget\packages\confluent.kafka\2.3.0\lib\net6.0\Confluent.Kafka.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
+	
 </Project>

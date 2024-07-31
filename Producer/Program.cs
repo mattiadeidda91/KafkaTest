@@ -22,6 +22,7 @@ builder.Services.AuthenticationBuild(builder.Environment.IsProduction(), jwtOpti
 //Configure Authorization
 builder.Services.AuthorizationBuild();
 
+//Configure Controllers
 builder.Services.BuildControllerConfigurations();
 
 //Configure Serilog

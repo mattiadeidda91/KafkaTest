@@ -16,7 +16,7 @@ namespace Producer.Controllers.v1
             this.msgBus = msgBus;
         }
 
-        [Obsolete("replace in v2 version")]
+        //[Obsolete("replace in v2 version")]
         [HttpPost("PostWeather")]
         public async Task<ActionResult<WeatherForecast>> PostWeather(WeatherForecast weatherForecastRequest, CancellationToken cancellationToken)
         {
