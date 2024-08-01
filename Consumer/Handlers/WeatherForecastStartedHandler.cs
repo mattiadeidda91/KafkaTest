@@ -6,9 +6,9 @@ namespace Consumer.Handlers
 {
     public class WeatherForecastStartedHandler : IEventHandler<WeatherForecastStartedEvent>
     {
-        public Task HandleAsync(WeatherForecastStartedEvent @event)
+        public Task HandleAsync(WeatherForecastStartedEvent weatherEvent)
         {
-            Console.WriteLine($"Handling WeatherForecastStartedEvent: {@event.ActivityId}, {JsonSerializer.Serialize(@event.Activity)}");
+            Console.WriteLine($"Handling WeatherForecastStartedEvent: {weatherEvent.ActivityId}, {JsonSerializer.Serialize(weatherEvent.Activity)}");
             
             return Task.CompletedTask;
         }

@@ -1,12 +1,15 @@
 ﻿using Common.Logger;
 using Common.Models;
 using Confluent.Kafka;
+using Kafka.Constants;
 using Kafka.Interfaces;
 using Kafka.Models;
 using Kafka.Options;
 using Kafka.Utils;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 
@@ -41,7 +44,7 @@ namespace Kafka.Services
             };
         }
 
-        public async Task<DeliveryResult<string,T>> SendMessage<T>(T message, string? key = null, Headers? headers = null)
+        public async Task<DeliveryResult<string,T>> SendMessage<T>(T message, CancellationToken cancellationToken, string? key = null, Headers? headers = null)
         {
             using var producer = new ProducerBuilder<string, T>(this.producerConfig)
                 .SetValueSerializer(new JsonSerializer<T>())
@@ -51,7 +54,7 @@ namespace Kafka.Services
             kMessage.Key = key;
             kMessage.Headers = headers;
 
-            var ret = await producer.ProduceAsync(kafkaOptions.Topic, kMessage);
+            var ret = await producer.ProduceAsync(kafkaOptions.Topic, kMessage, cancellationToken);
 
             logger.LogInfoKafkaMessageSent(JsonSerializer.Serialize(kMessage));
 
@@ -114,7 +117,7 @@ namespace Kafka.Services
         {
             var msgBusEvent = new TEvent
             {
-                ActivityId = Guid.NewGuid().ToString(),
+                ActivityId = Guid.NewGuid(),
                 Activity = activity
             };
 
@@ -124,6 +127,53 @@ namespace Kafka.Services
             };
 
             return (msgBusEvent, msgBusHeaders);
+        }
+
+        public ActionResult<MessageBusResponse<TDto>> ManageBusResponse<TEvent, TDto>(ControllerBase controller, DeliveryResult<string, TEvent> deliveryResult, TDto? activityRequest)
+                where TDto : BaseDto
+                where TEvent : BaseEvent<TDto>
+        {
+            ArgumentNullException.ThrowIfNull(controller);
+            ArgumentNullException.ThrowIfNull(activityRequest);
+
+            return deliveryResult.Status switch
+            {
+                PersistenceStatus.Persisted => controller.Ok(new MessageBusResponse<TDto>
+                {
+                    ActivityId = activityRequest.Guid,
+                    Title = KafkaCostants.ActivityInCharge,
+                    Status = (int)HttpStatusCode.OK,
+                    Detail = KafkaCostants.MessageSuccessfullyPersisted,
+                    OriginalPayload = activityRequest
+                }),
+
+                PersistenceStatus.PossiblyPersisted => controller.StatusCode((int)HttpStatusCode.Accepted, new MessageBusResponse<TDto>
+                {
+                    ActivityId = activityRequest.Guid,
+                    Title = KafkaCostants.ActivityInProgress,
+                    Status = (int)HttpStatusCode.Accepted,
+                    Detail = KafkaCostants.MessagePossiblyPersisted,
+                    OriginalPayload = activityRequest
+                }),
+
+                PersistenceStatus.NotPersisted => controller.BadRequest(new MessageBusResponse<TDto>
+                {
+                    ActivityId = activityRequest.Guid,
+                    Title = KafkaCostants.ActivityFailed,
+                    Status = (int)HttpStatusCode.BadRequest,
+                    Detail = KafkaCostants.MessageNotPersisted,
+                    OriginalPayload = activityRequest
+                }),
+
+                _ => controller.BadRequest(new MessageBusResponse<TDto>
+                {
+                    ActivityId = activityRequest.Guid,
+                    Title = KafkaCostants.ActivityFailed,
+                    Status = (int)HttpStatusCode.BadRequest,
+                    Detail = KafkaCostants.MessageUnknownStatus,
+                    OriginalPayload = activityRequest
+                }),
+            };
         }
     }
 }

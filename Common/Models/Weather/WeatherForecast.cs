@@ -1,6 +1,6 @@
 namespace Common.Models.Weather
 {
-    public class WeatherForecast
+    public class WeatherForecast : BaseDto
     {
         public DateTime Date { get; set; }
 

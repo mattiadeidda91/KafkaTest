@@ -21,7 +21,7 @@ namespace Producer.Controllers.v2
         {
             (var message, var headers) = msgBus.GenerateMsgBusEvent<WeatherForecastStartedEvent, WeatherForecast>(weatherForecastRequest);
 
-            await msgBus.SendMessage(message, null, headers);
+            await msgBus.SendMessage(message, cancellationToken, null, headers);
 
             return Ok(weatherForecastRequest);
         }
